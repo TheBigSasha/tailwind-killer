@@ -1,6 +1,6 @@
 {
   "name": "tailwind-killer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Tailwind Killer is a powerful CLI tool designed to remove Tailwind CSS from your project and migrate to regular CSS. It automates the process of converting Tailwind classes to standard CSS, making it easier to transition away from Tailwind or to refactor your existing codebase.",
   "bin": {
     "cli-typescript-starter": "./bin/run"

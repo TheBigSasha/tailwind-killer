@@ -1,7 +1,7 @@
 {
-  "name": "cli-typescript-starter",
+  "name": "tailwind-killer",
   "version": "1.0.0",
-  "description": "`cli-typescript-starter` is a simple and efficient tool that enables you to quickly create command-line applications using TypeScript. With its well-structured codebase and robust features, it provides an easy-to-use interface for developing and testing your CLI applications. It also comes with a set of predefined tools that allow you to quickly create a basic structure for your CLI application, which can be customized according to your needs. Additionally, it provides a simple way to add dependencies and plugins to your CLI app, making it ideal for developers who want to use third-party libraries and extend the functionality of their CLI apps.",
+  "description": "Tailwind Killer is a powerful CLI tool designed to remove Tailwind CSS from your project and migrate to regular CSS. It automates the process of converting Tailwind classes to standard CSS, making it easier to transition away from Tailwind or to refactor your existing codebase.",
   "bin": {
     "cli-typescript-starter": "./bin/run"
   },
@@ -15,7 +15,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/kucherenko/cli-typescript-starter.git"
+    "url": "git+ssh://git@github.com/thebigsasha/tailwind-killer.git"
   },
   "scripts": {
     "build": "tsup-node",
@@ -43,7 +43,7 @@
     "cli",
     "bootstrap"
   ],
-  "author": "Andrey Kucherenko <kucherenko.andrey@gmail.com>",
+  "author": "Sasha Aleshchenko <me@thebigsasha.com>",
   "license": "MIT",
   "devDependencies": {
     "@commitlint/cli": "^18.6.1",

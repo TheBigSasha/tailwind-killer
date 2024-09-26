@@ -9,7 +9,7 @@ import { createHash } from 'crypto';
 /*TODO:
     [ ] Retailwind is possible using comments in classes.. could make that scirpt.
     [?] use a hash based lockfile modificaiton management system like in auto_i18n_blog.js
-    [ ] add a flag to use GPT or not
+    [?] add a flag to use GPT or not
     [ ] Move configuration to a config file
     [ ] Failed conversion in `logos.astro` "				<img class="col-span-2 max-h-12 w-full object-contain lg:col-span-1 dark:invert" src={src} alt={alt} width="158" height="48" />" inside a map satatement
     [ ] Publish as a package
@@ -28,6 +28,18 @@ interface FileReplacement {
   tag?: string;
 }
 
+export interface TailwindKillerConfig {
+  orderMatters: boolean;
+  scannedFileTypes: string[];
+  maxLLMInvocations: number;
+  prefix: string;
+  openaiApiUrl: string;
+  tailwindOptions: any;
+  excludedDirectories: string[];
+  lockfilePath: string;
+  useLLM: boolean;
+}
+
 export class TailwindKiller {
   private orderMatters: boolean;
   private scannedFileTypes: string[];
@@ -42,17 +54,9 @@ export class TailwindKiller {
   private toWrite: { path: string; data: string[] }[] = [];
   private excludedDirectories: string[] = []
   private lockfile: Record<string, Record<string, any>> = {};
+  private useLLM: boolean;
 
-  constructor(config: {
-    orderMatters: boolean;
-    scannedFileTypes: string[];
-    maxLLMInvocations: number;
-    prefix: string;
-    openaiApiUrl: string;
-    tailwindOptions: any;
-    excludedDirectories: string[];
-    lockfilePath: string;
-  }) {
+  constructor(config: TailwindKillerConfig) {
     this.orderMatters = config.orderMatters;
     this.scannedFileTypes = config.scannedFileTypes;
     this.maxLLMInvocations = config.maxLLMInvocations;
@@ -60,6 +64,7 @@ export class TailwindKiller {
     this.openaiApiUrl = config.openaiApiUrl;
     this.tailwindOptions = config.tailwindOptions;
     this.excludedDirectories = config.excludedDirectories;
+    this.useLLM = config.useLLM;
     this.loadLockfile(config.lockfilePath);
   }
 
@@ -93,23 +98,14 @@ export class TailwindKiller {
       return this.tailwindClassnameMap.get(this.keyForClassname(info.class))!;
     }
 
-    let out;
+    let out: string;
+
     if (info.class.length === info.class.replace(" ", "").length) {
       out = info.class;
-    } else if (this.invocationCountClassName > this.maxLLMInvocations) {
-      console.log(
-        "You have reached the maximum number of invocations for LLM. " +
-          this.maxLLMInvocations +
-          " invocations per run." +
-          this.invocationCountClassName,
-      );
-      out = shorthash(info.class) + Math.floor(Math.random() * 10);
+    } else if (!this.useLLM || this.invocationCountClassName > this.maxLLMInvocations) {
+      out = this.generateHashBasedClassName(info.class);
     } else {
-      out = await fetch(this.openaiApiUrl + encodeURIComponent(this.getPrompt(info)))
-        .then((res) => res.json())
-        // @ts-ignore
-        .then((json) => json.response.response)
-        .catch((_) => shorthash(info.class) + Math.floor(Math.random() * 1000));
+      out = await this.getLLMGeneratedClassName(info);
       this.invocationCountClassName++;
     }
 
@@ -129,6 +125,21 @@ export class TailwindKiller {
 
     this.tailwindClassnameMap.set(this.keyForClassname(info.class), out);
     return out;
+  }
+
+  private generateHashBasedClassName(className: string): string {
+    return `${this.prefix}${shorthash(className)}${Math.floor(Math.random() * 1000)}`;
+  }
+
+  private async getLLMGeneratedClassName(info: TagInfo): Promise<string> {
+    try {
+      const response = await fetch(this.openaiApiUrl + encodeURIComponent(this.getPrompt(info)));
+      const json = await response.json();
+      // @ts-ignore
+      return json.response.response;
+    } catch (_) {
+      return this.generateHashBasedClassName(info.class);
+    }
   }
 
   private async getCSSCode(tagInfo: TagInfo): Promise<string> {

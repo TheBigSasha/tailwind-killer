@@ -1,63 +1,88 @@
 import { CommandModule } from 'yargs';
 import { consola } from 'consola';
-import { TailwindKiller } from '../killtailwind';
+import { TailwindKiller, TailwindKillerConfig } from '../killtailwind';
 
-export const killtw: CommandModule = {
+const killtwCommand: CommandModule = {
   command: 'killtw',
-  describe: 'Convert Tailwind classes to regular CSS',
+  describe: 'Convert Tailwind CSS classes to regular CSS',
   builder: (yargs) => {
     return yargs
-      .option('order-matters', {
+      .option('rootDir', {
+        type: 'string',
+        describe: 'Root directory to start processing files',
+        default: process.cwd(),
+      })
+      .option('lockfilePath', {
+        type: 'string',
+        describe: 'Path to the lockfile',
+        default: './tailwind-killer-lockfile.json',
+      })
+      .option('orderMatters', {
         type: 'boolean',
-        default: false,
         describe: 'Whether the order of classes matters',
+        default: false,
       })
-      .option('scanned-file-types', {
+      .option('scannedFileTypes', {
         type: 'array',
-        default: ['.astro', '.tsx', '.jsx', '.vue', '.html'],
         describe: 'File types to scan',
+        default: ['.astro', '.tsx', '.jsx', '.vue', '.html'],
       })
-      .option('max-llm-invocations', {
+      .option('maxLLMInvocations', {
         type: 'number',
-        default: 999,
         describe: 'Maximum number of LLM invocations',
+        default: 999,
       })
       .option('prefix', {
         type: 'string',
-        default: 'twk-',
         describe: 'Prefix for generated class names',
+        default: 'twk-',
       })
-      .option('openai-api-url', {
+      .option('openaiApiUrl', {
         type: 'string',
-        default: 'http://localhost:8787',
         describe: 'OpenAI API URL',
+        default: 'http://localhost:8787',
       })
-      .option('root-dir', {
-        type: 'string',
-        default: process.cwd(),
-        describe: 'Root directory to start scanning from',
+      .option('excludedDirectories', {
+        type: 'array',
+        describe: 'Directories to exclude',
+        default: ['node_modules', 'dist', '.git'],
+      })
+      .option('useLLM', {
+        type: 'boolean',
+        describe: 'Whether to use LLM for class name generation',
+        default: true,
       });
   },
   handler: async (argv) => {
-    const tailwindKiller = new TailwindKiller({
-      orderMatters: argv['order-matters'] as boolean,
-      scannedFileTypes: argv['scanned-file-types'] as string[],
-      maxLLMInvocations: argv['max-llm-invocations'] as number,
+    const config: TailwindKillerConfig = {
+      orderMatters: argv.orderMatters as boolean,
+      scannedFileTypes: argv.scannedFileTypes as string[],
+      maxLLMInvocations: argv.maxLLMInvocations as number,
       prefix: argv.prefix as string,
-      openaiApiUrl: argv['openai-api-url'] as string,
+      openaiApiUrl: argv.openaiApiUrl as string,
       tailwindOptions: {
-        ignoreMediaQueries: false,
-        experimental: true,
-        plugins: [typography],
+        // Add any Tailwind options here
       },
-    });
+      excludedDirectories: argv.excludedDirectories as string[],
+      lockfilePath: argv.lockfilePath as string,
+      useLLM: argv.useLLM as boolean,
+    };
 
-    consola.start('Starting Tailwind conversion...');
+    const tailwindKiller = new TailwindKiller(config);
+
+    consola.start('Starting Tailwind Killer');
+    consola.info(`Root directory: ${argv.rootDir}`);
+    consola.info(`Lockfile path: ${argv.lockfilePath}`);
+
     try {
-      await tailwindKiller.run(argv['root-dir'] as string);
-      consola.success('Tailwind conversion completed successfully!');
+      await tailwindKiller.run(argv.rootDir as string, argv.lockfilePath as string);
+      consola.success('Tailwind Killer completed successfully');
     } catch (error) {
-      consola.error('An error occurred during Tailwind conversion:', error);
+      consola.error('An error occurred during execution:');
+      consola.error(error);
+      process.exit(1);
     }
   },
 };
+
+export default killtwCommand;

@@ -89,7 +89,7 @@ export class TailwindKiller {
   ${JSON.stringify(info)} -> `;
   }
 
-  private addToWrite(path: string, data: string) {
+  public addToWrite(path: string, data: string) {
     const index = this.toWrite.findIndex(item => item.path === path);
     if (index !== -1) {
       this.toWrite[index]?.data.push(data);
@@ -226,7 +226,7 @@ export class TailwindKiller {
     }
   }
 
-  private saveLockfile(lockfilePath: string): void {
+  public saveLockfile(lockfilePath: string): void {
     fs.writeFileSync(lockfilePath, JSON.stringify(this.lockfile, null, 2));
   }
 

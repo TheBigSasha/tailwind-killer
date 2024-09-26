@@ -130,12 +130,13 @@ describe('TailwindKiller', () => {
     const readFileSpy = jest.spyOn(fsPromises, 'readFile').mockResolvedValue('<div class="bg-red-500"></div>');
     const writeFileSpy = jest.spyOn(fsPromises, 'writeFile').mockResolvedValue(undefined);
     const addToWriteSpy = jest.spyOn(tailwindKiller, 'addToWrite');
-  
-    // Mock the fix method to ensure it calls addToWrite
-    const fixSpy = jest.spyOn(tailwindKiller as any, 'fix').mockImplementation(async (...args: unknown[]) => {
-      const filePath = args[0] as string;
+
+    // Mock the fix method
+    const fixMock = jest.fn().mockImplementation(async (filePath: string) => {
       tailwindKiller.addToWrite(filePath, 'modified content');
     });
+    // Use type assertion to add the 'fix' method to tailwindKiller
+    (tailwindKiller as any).fix = fixMock;
 
     jest.spyOn(fsPromises, 'readdir').mockResolvedValue([
       { name: 'file1.astro', isDirectory: () => false, isFile: () => true } as unknown as Dirent
@@ -146,7 +147,7 @@ describe('TailwindKiller', () => {
 
     await tailwindKiller.run('/rootDir', './tailwind-killer-lockfile.json');
 
-    expect(fixSpy).toHaveBeenCalledTimes(1);
+    expect(fixMock).toHaveBeenCalledTimes(1);
     expect(addToWriteSpy).toHaveBeenCalledTimes(1);
     expect(addToWriteSpy).toHaveBeenCalledWith(
       expect.stringContaining('file1.astro'),
@@ -156,7 +157,6 @@ describe('TailwindKiller', () => {
     readFileSpy.mockRestore();
     writeFileSpy.mockRestore();
     addToWriteSpy.mockRestore();
-    fixSpy.mockRestore();
   });
   
   test('run skips unmodified files', async () => {

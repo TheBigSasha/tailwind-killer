@@ -38,7 +38,7 @@ export interface TailwindKillerConfig {
   maxLLMInvocations: number;
   prefix: string;
   openaiApiUrl: string;
-  tailwindOptions: any;
+  tailwindOptions: Record<string, unknown>;
   excludedDirectories: string[];
   lockfilePath: string;
   useLLM: boolean;
@@ -55,7 +55,7 @@ export class TailwindKiller {
   private maxLLMInvocations: number;
   private prefix: string;
   private openaiApiUrl: string;
-  private tailwindOptions: any;
+  private tailwindOptions: Record<string, unknown>;
   private invocationCountClassName: number = 0;
   private tailwindClassnameMap: Map<string, string> = new Map();
   private classNamesToElementsMap: Map<string, FileReplacement[]> = new Map();
@@ -145,13 +145,14 @@ export class TailwindKiller {
       const response = await fetch(this.openaiApiUrl + encodeURIComponent(this.getPrompt(info)));
       const json = await response.json() as { response: { response: string } };
       return json.response.response;
-    } catch (_) {
+    } catch (error) {
+      console.error('Error generating class name:', error);
       return this.generateHashBasedClassName(info.class);
     }
   }
 
   private async getCSSCode(tagInfo: TagInfo): Promise<string> {
-    let className = this.tailwindClassnameMap.has(tagInfo.class)
+    const className = this.tailwindClassnameMap.has(tagInfo.class)
       ? this.tailwindClassnameMap.get(tagInfo.class)!
       : await this.getClassName(tagInfo);
     if (twi(tagInfo.class, this.tailwindOptions) === "") {
@@ -165,13 +166,14 @@ export class TailwindKiller {
   }
 
   private replaceTailwind(data: string, file: string): string {
-    let offset = 0;
+    let modifiedData = data;
+    let offset = 0;  // Changed from const to let
     const replacementsForThisFile = Array.from(this.classNamesToElementsMap.values())
       .flat(5)
       .filter((el) => el.file === file)
       .sort((a, b) => a.indexClass - b.indexClass);
     if (this.filesReplaced.has(file)) {
-      return data;
+      return modifiedData;
     }
     console.log(
       `replacing ${replacementsForThisFile.length} classnames in ${file}`,
@@ -193,16 +195,16 @@ export class TailwindKiller {
 
       console.log(` - - replacing ${el.class} with ${replacement}`);
 
-      data = `${data.slice(0, indexOfClassname)}${replacement}${data.slice(indexOfClassnameEnd)}`;
+      modifiedData = `${modifiedData.slice(0, indexOfClassname)}${replacement}${modifiedData.slice(indexOfClassnameEnd)}`;
       offset += replacement.length - el.lengthClass;
     }
     this.filesReplaced.add(file);
-    return data;
+    return modifiedData;
   }
 
   private async getIndexedMatches(data: string, regex: RegExp): Promise<{ match: string; index: number; length: number }[]> {
     let match;
-    let out = [];
+    const out = [];
     while ((match = regex.exec(data)) !== null) {
       out.push({
         match: match[0],
@@ -256,7 +258,7 @@ export class TailwindKiller {
   }
 
   private async fix(filePath: string): Promise<void> {
-    let data = await fsPromises.readFile(filePath, { encoding: "utf-8" });
+    const data = await fsPromises.readFile(filePath, { encoding: "utf-8" });
     
     if (!this.isFileModified(filePath, data)) {
       console.log(`File ${filePath} has not been modified since last run. Skipping.`);
@@ -264,14 +266,14 @@ export class TailwindKiller {
     }
 
     const regex =
-      /(?<=id=")[^"]+|(?<=id=')[^']+|(?<=\[id\]=")[^"]+|(?<=\[id\]=')[^']+|(?<=<)[\w_-]+|(?<=[\[?ng]{0,2}class[Name]{0,4}\]?=")[^"]+|(?<=[\[?ng]{0,2}class[Name]{0,4}\]?=')[^']+|(?<=@include\s)[^\s]+/gim;
+      /(?<=id=")[^"]+|(?<=id=')[^']+|(?<=\[id\]=")[^"]+|(?<=\[id\]=')[^']+|(?<=<)[\w_-]+|(?<=(?:\[?ng)?class(?:Name)?\]?=")[^"]+|(?<=(?:\[?ng)?class(?:Name)?\]?=')[^']+|(?<=@include\s)[^\s]+/gim;
     const regexTags =
       /(?<=id=")[^"]+|(?<=id=')[^']+|(?<=\[id\]=")[^"]+|(?<=\[id\]=')[^']+|(?<=<)[\w_-]+|(?<=@include\s)[^\s]+/gim;
 
     const indexedMatches = await this.getIndexedMatches(data, regex);
     const indexedMatchesTags = await this.getIndexedMatches(data, regexTags);
 
-    let classnames = [];
+    const classnames = [];
     let idxTagsOnly = 0;
     for (const idxTagsInclClasses in indexedMatches) {
       if (
@@ -310,7 +312,7 @@ export class TailwindKiller {
       }
       this.classNamesToElementsMap.get(uniqueKey)!.push(clss);
     }
-    let filesToCSSMap = new Map();
+    const filesToCSSMap = new Map();
     for (const key of Array.from(this.classNamesToElementsMap.keys())) {
       const filesList = this.classNamesToElementsMap
         .get(key)!
@@ -336,7 +338,7 @@ export class TailwindKiller {
         continue;
       }
       let data = await fsPromises.readFile(file, { encoding: "utf-8" });
-      let css = filesToCSSMap.get(file)!.join("\n");
+      const css = filesToCSSMap.get(file)!.join("\n");
 
       const isUsingStyleTag =
         file.endsWith(".astro") ||
@@ -349,7 +351,7 @@ export class TailwindKiller {
           file,
         );
       } else if (file.endsWith(".tsx")) {
-        let moduleCSSFile = file.replace(".tsx", ".module.css");
+        const moduleCSSFile = file.replace(".tsx", ".module.css");
         this.addToWrite(moduleCSSFile, css);
         const styleImportName = `styles_generated_${Math.floor(Math.random() * 100)}`;
         const importCSS = `import ${styleImportName} from "./${path.basename(moduleCSSFile)}";`;

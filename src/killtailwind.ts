@@ -3,8 +3,6 @@ import path from 'path';
 import { twi } from 'tw-to-css';
 import fetch from 'node-fetch';
 import { shorthash } from 'astro/runtime/server/shorthash.js';
-import typography from '@tailwindcss/typography';
-import { EXCLUDED_DIRECTORIES } from './helpers/excludedDirectories';
 
 /*TODO:
     [ ] Retailwind is possible using comments in classes.. could make that scirpt.
@@ -39,6 +37,7 @@ export class TailwindKiller {
   private classNamesToElementsMap: Map<string, FileReplacement[]> = new Map();
   private filesReplaced: Set<string> = new Set();
   private toWrite: { path: string; data: string[] }[] = [];
+  private excludedDirectories: string[] = []
 
   constructor(config: {
     orderMatters: boolean;
@@ -47,6 +46,7 @@ export class TailwindKiller {
     prefix: string;
     openaiApiUrl: string;
     tailwindOptions: any;
+    excludedDirectories: string[];
   }) {
     this.orderMatters = config.orderMatters;
     this.scannedFileTypes = config.scannedFileTypes;
@@ -54,6 +54,7 @@ export class TailwindKiller {
     this.prefix = config.prefix;
     this.openaiApiUrl = config.openaiApiUrl;
     this.tailwindOptions = config.tailwindOptions;
+    this.excludedDirectories = config.excludedDirectories;
   }
 
   private getPrompt(info: TagInfo): string {
@@ -100,6 +101,7 @@ export class TailwindKiller {
     } else {
       out = await fetch(this.openaiApiUrl + encodeURIComponent(this.getPrompt(info)))
         .then((res) => res.json())
+        // @ts-ignore
         .then((json) => json.response.response)
         .catch((_) => shorthash(info.class) + Math.floor(Math.random() * 1000));
       this.invocationCountClassName++;
@@ -308,7 +310,7 @@ export class TailwindKiller {
     }
     const files = await fs.readdir(folder);
     for (const file of files) {
-      if (EXCLUDED_DIRECTORIES.includes(file)) {
+      if (this.excludedDirectories.includes(file)) {
         continue;
       }
       const filePath = path.join(folder, file);
@@ -330,7 +332,7 @@ export class TailwindKiller {
   public async run(rootDir: string): Promise<void> {
     const allFolders = await fs.readdir(rootDir);
     for (const folder of allFolders) {
-      if (!EXCLUDED_DIRECTORIES.includes(folder)) {
+      if (!this.excludedDirectories.includes(folder)) {
         await this.fixTraverse(path.join(rootDir, folder));
       }
     }

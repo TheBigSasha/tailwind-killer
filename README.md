@@ -16,6 +16,10 @@ To install Tailwind Killer, build from source. The library will be published to 
 ```bash
 pnpm i -g tailwind-killer
 ```
+or
+```bash
+npm i -g tailwind-killer
+```
 
 ## Usage
 

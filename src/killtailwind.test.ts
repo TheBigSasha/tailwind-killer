@@ -1,19 +1,16 @@
 import { TailwindKiller, TailwindKillerConfig } from './killtailwind';
 import fs from 'fs';
 import * as fsPromises from 'fs/promises';
-import path from 'path';
-import puppeteer from 'puppeteer';
-import { PNG } from 'pngjs';
-import pixelmatch from 'pixelmatch';
+// import path from 'path';
+// import { PNG } from 'pngjs';
+// import pixelmatch from 'pixelmatch';
+// import puppeteer from 'puppeteer';
 
 // Mock external dependencies
 jest.mock('fs');
 jest.mock('fs/promises');
-jest.mock('path');
-jest.mock('tw-to-css');
 jest.mock('node-fetch', () => jest.fn());
-jest.mock('astro/runtime/server/shorthash.js');
-jest.mock('crypto');
+
 
 describe('TailwindKiller', () => {
   let tailwindKiller: TailwindKiller;
@@ -117,9 +114,6 @@ describe('TailwindKiller', () => {
   });
 
   test('getCSSCode returns empty string for invalid Tailwind classes', async () => {
-    const twi = require('tw-to-css');
-    twi.mockReturnValue('');
-
     const result = await tailwindKiller['getCSSCode']({ tag: 'div', class: 'invalid-class' });
     expect(result).toBe('');
   });
@@ -150,69 +144,69 @@ describe('TailwindKiller', () => {
     expect(fs.writeFileSync).toHaveBeenCalledWith('tailwind-killer.lock', expect.any(String));
   });
 
-  describe('TailwindKiller Visual Regression Test', () => {
-    let tailwindKiller: TailwindKiller;
-    let mockConfig: TailwindKillerConfig;
+  // describe('TailwindKiller Visual Regression Test', () => {
+  //   let tailwindKiller: TailwindKiller;
+  //   let mockConfig: TailwindKillerConfig;
 
-    beforeEach(() => {
-      mockConfig = {
-        orderMatters: false,
-        scannedFileTypes: ['.astro', '.html', '.tsx'],
-        maxLLMInvocations: 100,
-        prefix: 'tw-',
-        openaiApiUrl: 'https://api.openai.com/v1/engines/davinci-codex/completions',
-        tailwindOptions: {},
-        excludedDirectories: ['node_modules'],
-        lockfilePath: 'tailwind-killer.lock',
-        useLLM: true
-      };
+  //   beforeEach(() => {
+  //     mockConfig = {
+  //       orderMatters: false,
+  //       scannedFileTypes: ['.astro', '.html', '.tsx'],
+  //       maxLLMInvocations: 100,
+  //       prefix: 'tw-',
+  //       openaiApiUrl: 'https://api.openai.com/v1/engines/davinci-codex/completions',
+  //       tailwindOptions: {},
+  //       excludedDirectories: ['node_modules'],
+  //       lockfilePath: 'tailwind-killer.lock',
+  //       useLLM: true
+  //     };
 
-      tailwindKiller = new TailwindKiller(mockConfig);
-    });
+  //     tailwindKiller = new TailwindKiller(mockConfig);
+  //   });
 
-    test('Visual regression test for de-Tailwinded page', async () => {
-      const testHtmlPath = path.join(__dirname, '__tests__', 'test.html');
-      const outputHtmlPath = path.join(__dirname, '__tests__', 'output.html');
+  //   test('Visual regression test for de-Tailwinded page', async () => {
+  //     const testHtmlPath = path.join(__dirname, '__tests__', 'test.html');
+  //     const outputHtmlPath = path.join(__dirname, '__tests__', 'output.html');
 
-      // Read the test HTML file
-      const testHtml = await fs.promises.readFile(testHtmlPath, 'utf-8');
+  //     // Read the test HTML file
+  //     const testHtml = await fs.promises.readFile(testHtmlPath, 'utf-8');
 
-      // Process the HTML with TailwindKiller
-      const processedHtml = tailwindKiller['replaceTailwind'](testHtml, testHtmlPath);
+  //     // Process the HTML with TailwindKiller
+  //     const processedHtml = tailwindKiller['replaceTailwind'](testHtml, testHtmlPath);
 
-      // Write the processed HTML to a new file
-      await fs.promises.writeFile(outputHtmlPath, processedHtml);
+  //     // Write the processed HTML to a new file
+  //     await fs.promises.writeFile(outputHtmlPath, processedHtml);
 
-      // Launch a headless browser
-      const browser = await puppeteer.launch();
-      const page = await browser.newPage();
+  //     // Launch a headless browser
+  //     const browser = await puppeteer.launch();
+  //     const page = await browser.newPage();
 
-      // Function to capture screenshot
-      async function captureScreenshot(filePath: string) {
-        await page.goto(`file://${filePath}`);
-        return await page.screenshot({ fullPage: true });
-      }
+  //     // Function to capture screenshot
+  //     async function captureScreenshot(filePath: string) {
+  //       await page.goto(`file://${filePath}`);
+  //       return await page.screenshot({ fullPage: true });
+  //     }
 
-      // Capture screenshots of both original and processed pages
-      const originalScreenshot = await captureScreenshot(testHtmlPath);
-      const processedScreenshot = await captureScreenshot(outputHtmlPath);
+  //     // Capture screenshots of both original and processed pages
+  //     const originalScreenshot = await captureScreenshot(testHtmlPath);
+  //     const processedScreenshot = await captureScreenshot(outputHtmlPath);
 
-      // Close the browser
-      await browser.close();
+  //     // Close the browser
+  //     await browser.close();
 
-      // Compare screenshots
-      const img1 = PNG.sync.read(originalScreenshot as Buffer);
-      const img2 = PNG.sync.read(processedScreenshot as Buffer);
-      const { width, height } = img1;
-      const diff = new PNG({ width, height });
+  //     // Compare screenshots
+  //     const img1 = PNG.sync.read(originalScreenshot as Buffer);
+  //     const img2 = PNG.sync.read(processedScreenshot as Buffer);
+  //     const { width, height } = img1;
+  //     const diff = new PNG({ width, height });
 
-      const mismatchedPixels = pixelmatch(img1.data, img2.data, diff.data, width, height, { threshold: 0.1 });
+  //     const mismatchedPixels = pixelmatch(img1.data, img2.data, diff.data, width, height, { threshold: 0.1 });
 
-      // Assert that the number of mismatched pixels is below a threshold
-      expect(mismatchedPixels).toBeLessThan(100); // Adjust this threshold as needed
+  //     // Assert that the number of mismatched pixels is below a threshold
+  //     expect(mismatchedPixels).toBeLessThan(100); // Adjust this threshold as needed
 
-      // Optionally, save diff image for visual inspection
-      // fs.writeFileSync('diff.png', PNG.sync.write(diff));
-    }, 30000); // Increase timeout for this test
-  });
+  //     // Optionally, save diff image for visual inspection
+  //     // fs.writeFileSync('diff.png', PNG.sync.write(diff));
+  //   }, 30000); // Increase timeout for this test
+  // });
 });

@@ -34,7 +34,8 @@
     "test:watch": "jest --watchAll",
     "prepare": "husky",
     "release": "semantic-release",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:esm": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "keywords": [
     "typescript",
@@ -96,5 +97,6 @@
     "commitizen": {
       "path": "cz-conventional-changelog"
     }
-  }
+  },
+  "type": "module"
 }

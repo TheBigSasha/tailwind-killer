@@ -3,8 +3,12 @@ import * as fsPromises from 'fs/promises';
 import path from 'path';
 import { twi } from 'tw-to-css';
 import fetch from 'node-fetch';
-import { shorthash } from 'astro/runtime/server/shorthash.js';
 import { createHash } from 'crypto';
+
+// Simple shorthash function implementation
+function shorthash(text: string): string {
+  return createHash('md5').update(text).digest('hex').slice(0, 8);
+}
 
 /*TODO:
     [ ] Retailwind is possible using comments in classes.. could make that scirpt.
@@ -40,6 +44,11 @@ export interface TailwindKillerConfig {
   useLLM: boolean;
 }
 
+interface WriteItem {
+  path: string;
+  data: string[];
+}
+
 export class TailwindKiller {
   private orderMatters: boolean;
   private scannedFileTypes: string[];
@@ -51,7 +60,7 @@ export class TailwindKiller {
   private tailwindClassnameMap: Map<string, string> = new Map();
   private classNamesToElementsMap: Map<string, FileReplacement[]> = new Map();
   private filesReplaced: Set<string> = new Set();
-  private toWrite: { path: string; data: string[] }[] = [];
+  private toWrite: WriteItem[] = [];
   private excludedDirectories: string[] = []
   private lockfile: Record<string, Record<string, any>> = {};
   private useLLM: boolean;
@@ -80,10 +89,10 @@ export class TailwindKiller {
   ${JSON.stringify(info)} -> `;
   }
 
-  private prepareToWrite(path: string, data: string): void {
-    if (this.toWrite.some((el) => el.path === path)) {
-      const index = this.toWrite.findIndex((el) => el.path === path);
-      this.toWrite[index].data.push(data);
+  private addToWrite(path: string, data: string) {
+    const index = this.toWrite.findIndex(item => item.path === path);
+    if (index !== -1) {
+      this.toWrite[index]?.data.push(data);
     } else {
       this.toWrite.push({ path, data: [data] });
     }
@@ -134,8 +143,7 @@ export class TailwindKiller {
   private async getLLMGeneratedClassName(info: TagInfo): Promise<string> {
     try {
       const response = await fetch(this.openaiApiUrl + encodeURIComponent(this.getPrompt(info)));
-      const json = await response.json();
-      // @ts-ignore
+      const json = await response.json() as { response: { response: string } };
       return json.response.response;
     } catch (_) {
       return this.generateHashBasedClassName(info.class);
@@ -274,21 +282,23 @@ export class TailwindKiller {
       }
       const tagMatchIdx = indexedMatchesTags[idxTagsOnly];
       const classMatchIdx = indexedMatches[idxTagsInclClasses];
-      const tagMatch = tagMatchIdx.match;
-      const classMatch = classMatchIdx.match;
-      if (tagMatch === classMatch) {
-        idxTagsOnly++;
-        continue;
+      if (tagMatchIdx && classMatchIdx) {
+        const tagMatch = tagMatchIdx.match;
+        const classMatch = classMatchIdx.match;
+        if (tagMatch === classMatch) {
+          idxTagsOnly++;
+          continue;
+        }
+        classnames.push({
+          tag: tagMatch,
+          class: classMatch,
+          file: filePath,
+          indexTag: tagMatchIdx.index,
+          indexClass: classMatchIdx.index,
+          lengthTag: tagMatchIdx.length,
+          lengthClass: classMatchIdx.length,
+        });
       }
-      classnames.push({
-        tag: tagMatch,
-        class: classMatch,
-        file: filePath,
-        indexTag: tagMatchIdx.index,
-        indexClass: classMatchIdx.index,
-        lengthTag: tagMatchIdx.length,
-        lengthClass: classMatchIdx.length,
-      });
     }
 
     let classNamesListSet = new Set();
@@ -307,15 +317,17 @@ export class TailwindKiller {
         .map((element) => element.file);
       const uniqueFilesList = Array.from(new Set(filesList));
       const element = this.classNamesToElementsMap.get(key)![0];
-      const css = await this.getCSSCode({
-        tag: element.tag || '', // Add a fallback empty string
-        class: element.class,
-      });
-      for (const file of uniqueFilesList) {
-        if (!filesToCSSMap.has(file)) {
-          filesToCSSMap.set(file, []);
+      if (element) {
+        const css = await this.getCSSCode({
+          tag: element.tag || '', // Add a fallback empty string
+          class: element.class,
+        });
+        for (const file of uniqueFilesList) {
+          if (!filesToCSSMap.has(file)) {
+            filesToCSSMap.set(file, []);
+          }
+          filesToCSSMap.get(file)!.push(css);
         }
-        filesToCSSMap.get(file)!.push(css);
       }
     }
 
@@ -338,7 +350,7 @@ export class TailwindKiller {
         );
       } else if (file.endsWith(".tsx")) {
         let moduleCSSFile = file.replace(".tsx", ".module.css");
-        this.prepareToWrite(moduleCSSFile, css);
+        this.addToWrite(moduleCSSFile, css);
         const styleImportName = `styles_generated_${Math.floor(Math.random() * 100)}`;
         const importCSS = `import ${styleImportName} from "./${path.basename(moduleCSSFile)}";`;
 
@@ -361,7 +373,7 @@ export class TailwindKiller {
 
       const modifiedData = this.replaceTailwind(data, file);
       this.lockFileModification(file, data, modifiedData);
-      this.prepareToWrite(file, modifiedData);
+      this.addToWrite(file, modifiedData);
     }
   }
 

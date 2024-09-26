@@ -11,7 +11,7 @@ jest.mock('fs');
 jest.mock('fs/promises');
 jest.mock('path');
 jest.mock('tw-to-css');
-jest.mock('node-fetch');
+jest.mock('node-fetch', () => jest.fn());
 jest.mock('astro/runtime/server/shorthash.js');
 jest.mock('crypto');
 

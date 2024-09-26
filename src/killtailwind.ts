@@ -375,43 +375,28 @@ export class TailwindKiller {
       this.lockFileModification(file, data, modifiedData);
       this.addToWrite(file, modifiedData);
     }
-  }
 
-  private async fixTraverse(folder: string): Promise<void> {
-    const stat = await fsPromises.stat(folder);
-    if (!stat.isDirectory()) {
-      if (this.scannedFileTypes.some((filetype) => folder.endsWith(filetype))) {
-        await this.fix(folder);
-      } else {
-        return;
-      }
-    }
-    const files = await fsPromises.readdir(folder);
-    for (const file of files) {
-      if (this.excludedDirectories.includes(file)) {
-        continue;
-      }
-      const filePath = path.join(folder, file);
-      const stat = await fsPromises.stat(filePath);
-      if (stat.isDirectory()) {
-        await this.fixTraverse(filePath);
-      } else {
-        if (
-          this.scannedFileTypes.some(
-            (filetype) => stat.isFile() && file.endsWith(filetype),
-          )
-        ) {
-          await this.fix(filePath);
-        }
-      }
-    }
+    // After processing, add the modified content to be written
+    this.addToWrite(filePath, data);
   }
 
   public async run(rootDir: string, lockfilePath: string): Promise<void> {
-    const allFolders = await fsPromises.readdir(rootDir);
-    for (const folder of allFolders) {
-      if (!this.excludedDirectories.includes(folder)) {
-        await this.fixTraverse(path.join(rootDir, folder));
+    this.loadLockfile(lockfilePath);
+    await this.fixTraverse(rootDir, lockfilePath);
+    this.saveLockfile(lockfilePath);
+  }
+
+  private async fixTraverse(folder: string, lockfilePath: string): Promise<void> {
+    const files = await fsPromises.readdir(folder, { withFileTypes: true });
+    for (const file of files) {
+      if (this.excludedDirectories.includes(file.name)) {
+        continue;
+      }
+      const filePath = path.join(folder, file.name);
+      if (file.isDirectory()) {
+        await this.fixTraverse(filePath, lockfilePath);
+      } else if (file.isFile() && this.scannedFileTypes.some(ext => file.name.endsWith(ext))) {
+        await this.fix(filePath);
       }
     }
 

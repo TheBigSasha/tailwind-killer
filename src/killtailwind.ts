@@ -56,10 +56,10 @@ export class TailwindKiller {
   private prefix: string;
   private openaiApiUrl: string;
   private tailwindOptions: Record<string, unknown>;
-  private invocationCountClassName: number = 0;
-  private tailwindClassnameMap: Map<string, string> = new Map();
-  private classNamesToElementsMap: Map<string, FileReplacement[]> = new Map();
-  private filesReplaced: Set<string> = new Set();
+  private invocationCountClassName = 0;
+  private tailwindClassnameMap = new Map<string, string>();
+  private classNamesToElementsMap = new Map<string, FileReplacement[]>();
+  private filesReplaced = new Set<string>();
   private toWrite: WriteItem[] = [];
   private excludedDirectories: string[] = []
   private lockfile: Record<string, Record<string, any>> = {};
@@ -257,7 +257,7 @@ export class TailwindKiller {
     return currentHash !== this.lockfile[file].hash && currentHash !== this.lockfile[file].hashModified;
   }
 
-  private async fix(filePath: string): Promise<void> {
+  async fix(filePath: string): Promise<void> {
     const data = await fsPromises.readFile(filePath, { encoding: "utf-8" });
     
     if (!this.isFileModified(filePath, data)) {

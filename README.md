@@ -13,6 +13,9 @@ Tailwind Killer is a powerful CLI tool designed to remove Tailwind CSS from your
 ## Installation
 
 To install Tailwind Killer, build from source. The library will be published to NPM later, and this section will be updated.
+```bash
+pnpm i -g tailwind-killer
+```
 
 ## Usage
 

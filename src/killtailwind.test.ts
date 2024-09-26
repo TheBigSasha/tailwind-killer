@@ -11,7 +11,6 @@ jest.mock('fs');
 jest.mock('fs/promises');
 jest.mock('node-fetch', () => jest.fn());
 
-
 describe('TailwindKiller', () => {
   let tailwindKiller: TailwindKiller;
   let mockConfig: TailwindKillerConfig;
@@ -30,6 +29,9 @@ describe('TailwindKiller', () => {
     };
 
     tailwindKiller = new TailwindKiller(mockConfig);
+
+    // Mock fs.readFileSync to return an empty JSON string
+    (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify({}));
   });
 
   afterEach(() => {
@@ -106,11 +108,9 @@ describe('TailwindKiller', () => {
   });
 
   test('getCSSCode generates CSS for valid Tailwind classes', async () => {
-    const twi = require('tw-to-css');
-    twi.mockReturnValue('background-color: #3b82f6;');
-
     const result = await tailwindKiller['getCSSCode']({ tag: 'div', class: 'bg-blue-500' });
-    expect(result).toContain('background-color: #3b82f6;');
+    expect(result).toContain('background-color:');
+    expect(result).toContain('rgb(59,130,246)');
   });
 
   test('getCSSCode returns empty string for invalid Tailwind classes', async () => {
@@ -121,7 +121,7 @@ describe('TailwindKiller', () => {
   test('replaceTailwind replaces Tailwind classes in file content', () => {
     tailwindKiller['tailwindClassnameMap'].set('bg-red-500', 'tw-red-background');
     tailwindKiller['classNamesToElementsMap'].set('bg-red-500', [
-      { file: 'test.astro', indexClass: 10, lengthClass: 10, class: 'bg-red-500' }
+      { file: 'test.astro', indexClass: 12, lengthClass: 10, class: 'bg-red-500' }
     ]);
 
     const result = tailwindKiller['replaceTailwind']('<div class="bg-red-500">', 'test.astro');
@@ -138,9 +138,42 @@ describe('TailwindKiller', () => {
     const mockReadFile = fsPromises.readFile as jest.Mock;
     mockReadFile.mockResolvedValue('<div class="bg-red-500">');
 
+    // Mock isFileModified to return true
+    tailwindKiller['isFileModified'] = jest.fn().mockReturnValue(true);
+
+    // Mock replaceTailwind to return modified content
+    tailwindKiller['replaceTailwind'] = jest.fn().mockReturnValue('<div class="tw-red-background">');
+
+    // Mock getCSSCode to return some CSS
+    tailwindKiller['getCSSCode'] = jest.fn().mockResolvedValue('.tw-red-background { background-color: red; }');
+
     await tailwindKiller.run('src', 'tailwind-killer.lock');
 
-    expect(fsPromises.writeFile).toHaveBeenCalled();
+    // Check if writeFile was called for each file
+    expect(fsPromises.writeFile).toHaveBeenCalledTimes(2);
+    expect(fsPromises.writeFile).toHaveBeenCalledWith(expect.stringContaining('file1.astro'), expect.any(String));
+    expect(fsPromises.writeFile).toHaveBeenCalledWith(expect.stringContaining('file2.tsx'), expect.any(String));
+
+    expect(fs.writeFileSync).toHaveBeenCalledWith('tailwind-killer.lock', expect.any(String));
+  });
+
+  // Add this new test to check if files are skipped when not modified
+  test('run skips unmodified files', async () => {
+    const mockReaddir = fsPromises.readdir as jest.Mock;
+    mockReaddir.mockResolvedValue(['file1.astro', 'file2.tsx']);
+
+    const mockStat = fsPromises.stat as jest.Mock;
+    mockStat.mockResolvedValue({ isDirectory: () => false, isFile: () => true });
+
+    const mockReadFile = fsPromises.readFile as jest.Mock;
+    mockReadFile.mockResolvedValue('<div class="bg-red-500">');
+
+    // Mock isFileModified to return false
+    tailwindKiller['isFileModified'] = jest.fn().mockReturnValue(false);
+
+    await tailwindKiller.run('src', 'tailwind-killer.lock');
+
+    expect(fsPromises.writeFile).not.toHaveBeenCalled();
     expect(fs.writeFileSync).toHaveBeenCalledWith('tailwind-killer.lock', expect.any(String));
   });
 

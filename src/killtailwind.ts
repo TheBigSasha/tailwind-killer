@@ -1,12 +1,14 @@
-import fs from 'fs/promises';
+import fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import path from 'path';
 import { twi } from 'tw-to-css';
 import fetch from 'node-fetch';
 import { shorthash } from 'astro/runtime/server/shorthash.js';
+import { createHash } from 'crypto';
 
 /*TODO:
     [ ] Retailwind is possible using comments in classes.. could make that scirpt.
-    [ ] use a hash based lockfile modificaiton management system like in auto_i18n_blog.js
+    [?] use a hash based lockfile modificaiton management system like in auto_i18n_blog.js
     [ ] add a flag to use GPT or not
     [ ] Move configuration to a config file
     [ ] Failed conversion in `logos.astro` "				<img class="col-span-2 max-h-12 w-full object-contain lg:col-span-1 dark:invert" src={src} alt={alt} width="158" height="48" />" inside a map satatement
@@ -23,6 +25,7 @@ interface FileReplacement {
   indexClass: number;
   lengthClass: number;
   class: string;
+  tag?: string;
 }
 
 export class TailwindKiller {
@@ -38,6 +41,7 @@ export class TailwindKiller {
   private filesReplaced: Set<string> = new Set();
   private toWrite: { path: string; data: string[] }[] = [];
   private excludedDirectories: string[] = []
+  private lockfile: Record<string, Record<string, any>> = {};
 
   constructor(config: {
     orderMatters: boolean;
@@ -47,6 +51,7 @@ export class TailwindKiller {
     openaiApiUrl: string;
     tailwindOptions: any;
     excludedDirectories: string[];
+    lockfilePath: string;
   }) {
     this.orderMatters = config.orderMatters;
     this.scannedFileTypes = config.scannedFileTypes;
@@ -55,6 +60,7 @@ export class TailwindKiller {
     this.openaiApiUrl = config.openaiApiUrl;
     this.tailwindOptions = config.tailwindOptions;
     this.excludedDirectories = config.excludedDirectories;
+    this.loadLockfile(config.lockfilePath);
   }
 
   private getPrompt(info: TagInfo): string {
@@ -188,8 +194,56 @@ export class TailwindKiller {
     return out;
   }
 
+  private hashFn(content: string): string {
+    return createHash('md5').update(content).digest('hex');
+  }
+
+  private loadLockfile(lockfilePath: string): void {
+    try {
+      this.lockfile = JSON.parse(fs.readFileSync(lockfilePath, 'utf-8'));
+    } catch (error) {
+      console.warn('Failed to load lockfile, starting with an empty one');
+      this.lockfile = {};
+    }
+  }
+
+  private saveLockfile(lockfilePath: string): void {
+    fs.writeFileSync(lockfilePath, JSON.stringify(this.lockfile, null, 2));
+  }
+
+  private lockFileModification(file: string, originalContent: string, modifiedContent: string): void {
+    const hash = this.hashFn(originalContent);
+    const hashModified = this.hashFn(modifiedContent);
+    
+    if (!this.lockfile[file]) {
+      this.lockfile[file] = {};
+    }
+    
+    this.lockfile[file] = {
+      hash,
+      hashModified,
+      modified: Date.now(),
+      algorithm: 'TailwindKiller',
+    };
+  }
+
+  private isFileModified(file: string, content: string): boolean {
+    if (!this.lockfile[file]) {
+      return true;
+    }
+    
+    const currentHash = this.hashFn(content);
+    return currentHash !== this.lockfile[file].hash && currentHash !== this.lockfile[file].hashModified;
+  }
+
   private async fix(filePath: string): Promise<void> {
-    let data = await fs.readFile(filePath, { encoding: "utf-8" });
+    let data = await fsPromises.readFile(filePath, { encoding: "utf-8" });
+    
+    if (!this.isFileModified(filePath, data)) {
+      console.log(`File ${filePath} has not been modified since last run. Skipping.`);
+      return;
+    }
+
     const regex =
       /(?<=id=")[^"]+|(?<=id=')[^']+|(?<=\[id\]=")[^"]+|(?<=\[id\]=')[^']+|(?<=<)[\w_-]+|(?<=[\[?ng]{0,2}class[Name]{0,4}\]?=")[^"]+|(?<=[\[?ng]{0,2}class[Name]{0,4}\]?=')[^']+|(?<=@include\s)[^\s]+/gim;
     const regexTags =
@@ -243,7 +297,7 @@ export class TailwindKiller {
       const uniqueFilesList = Array.from(new Set(filesList));
       const element = this.classNamesToElementsMap.get(key)![0];
       const css = await this.getCSSCode({
-        tag: element.tag,
+        tag: element.tag || '', // Add a fallback empty string
         class: element.class,
       });
       for (const file of uniqueFilesList) {
@@ -258,7 +312,7 @@ export class TailwindKiller {
       if (this.filesReplaced.has(file)) {
         continue;
       }
-      let data = await fs.readFile(file, { encoding: "utf-8" });
+      let data = await fsPromises.readFile(file, { encoding: "utf-8" });
       let css = filesToCSSMap.get(file)!.join("\n");
 
       const isUsingStyleTag =
@@ -294,13 +348,14 @@ export class TailwindKiller {
         }
       }
 
-      this.prepareToWrite(file, data);
-      this.filesReplaced.add(file);
+      const modifiedData = this.replaceTailwind(data, file);
+      this.lockFileModification(file, data, modifiedData);
+      this.prepareToWrite(file, modifiedData);
     }
   }
 
   private async fixTraverse(folder: string): Promise<void> {
-    const stat = await fs.stat(folder);
+    const stat = await fsPromises.stat(folder);
     if (!stat.isDirectory()) {
       if (this.scannedFileTypes.some((filetype) => folder.endsWith(filetype))) {
         await this.fix(folder);
@@ -308,13 +363,13 @@ export class TailwindKiller {
         return;
       }
     }
-    const files = await fs.readdir(folder);
+    const files = await fsPromises.readdir(folder);
     for (const file of files) {
       if (this.excludedDirectories.includes(file)) {
         continue;
       }
       const filePath = path.join(folder, file);
-      const stat = await fs.stat(filePath);
+      const stat = await fsPromises.stat(filePath);
       if (stat.isDirectory()) {
         await this.fixTraverse(filePath);
       } else {
@@ -329,8 +384,8 @@ export class TailwindKiller {
     }
   }
 
-  public async run(rootDir: string): Promise<void> {
-    const allFolders = await fs.readdir(rootDir);
+  public async run(rootDir: string, lockfilePath: string): Promise<void> {
+    const allFolders = await fsPromises.readdir(rootDir);
     for (const folder of allFolders) {
       if (!this.excludedDirectories.includes(folder)) {
         await this.fixTraverse(path.join(rootDir, folder));
@@ -341,8 +396,10 @@ export class TailwindKiller {
     for (const write of this.toWrite) {
       for (const data of write.data) {
         console.log(`Writing ${data.length} chars to ${write.path}`);
-        await fs.writeFile(write.path, data, { encoding: 'utf-8' });
+        await fsPromises.writeFile(write.path, data, { encoding: 'utf-8' });
       }
     }
+
+    this.saveLockfile(lockfilePath);
   }
 }

@@ -15,17 +15,11 @@ Tailwind Killer is a powerful CLI tool designed to remove Tailwind CSS from your
 To install Tailwind Killer, build from source. The library will be published to NPM later, and this section will be updated.
 
 ## Usage
+
 To use Tailwind Killer, run the following command in your project directory:
 
 ```bash
 tailwind-killer killtw [options]
-```
-
-### Options
-```
-typescript:src/commands/killtw.ts
-startLine: 9
-endLine: 54
 ```
 
 ## How It Works
@@ -45,12 +39,27 @@ When `useLLM` is set to `true`, Tailwind Killer uses a Language Model to generat
 
 The lockfile (default: `tailwind-killer-lockfile.json`) keeps track of processed files and their hash values. This ensures that only modified files are processed in subsequent runs, improving performance.
 
+## Configuration Options Explained
+
+- `rootDir`: The starting point for file scanning. Set this to target a specific directory in your project.
+- `lockfilePath`: Location of the lockfile. Customize this if you want to store the lockfile in a different location.
+- `orderMatters`: Set to `true` if the order of Tailwind classes is significant in your project.
+- `scannedFileTypes`: Add or remove file extensions to control which files are processed.
+- `maxLLMInvocations`: Limits the number of times the LLM is called, useful for controlling API usage.
+- `prefix`: Customize the prefix for generated class names to avoid conflicts with existing classes.
+- `openaiApiUrl`: Set this to your OpenAI API endpoint or a compatible service.
+- `excludedDirectories`: Add directories you want to skip during processing.
+- `useLLM`: Disable this if you prefer not to use LLM for class name generation.
+
 ## Best Practices
 
 - Always backup your project before running Tailwind Killer.
 - Start with a small subset of files to test the output before processing your entire project.
 - Review the generated CSS and class names to ensure they meet your project's naming conventions.
 - Use version control to easily track and manage changes made by Tailwind Killer.
+- Adjust the `maxLLMInvocations` based on your API usage limits and project size.
+- Customize the `prefix` to align with your project's naming conventions.
+- Regularly update your `excludedDirectories` list as your project structure evolves.
 
 ## Contributing
 

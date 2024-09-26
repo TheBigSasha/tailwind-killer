@@ -128,48 +128,48 @@ describe('TailwindKiller', () => {
     expect(result).toBe('<div class="tw-red-background">');
   });
 
-  // test('run processes files and writes changes', async () => {
-  //   const mockReaddir = fsPromises.readdir as jest.Mock; //TODO: is it a bad test or bad code?
-  //   mockReaddir.mockResolvedValue(['file1.astro', 'file2.tsx']);
+  test('run processes files and writes changes', async () => {
+    const mockReaddir = fsPromises.readdir as jest.Mock;
+    mockReaddir.mockResolvedValue(['file1.astro', 'file2.tsx']);
 
-  //   const mockStat = fsPromises.stat as jest.Mock;
-  //   mockStat.mockResolvedValue({ isDirectory: () => false, isFile: () => true });
+    const mockStat = fsPromises.stat as jest.Mock;
+    mockStat.mockResolvedValue({ isDirectory: () => false, isFile: () => true });
 
-  //   const mockReadFile = fsPromises.readFile as jest.Mock;
-  //   mockReadFile.mockResolvedValue('<div class="bg-red-500">');
+    const mockReadFile = fsPromises.readFile as jest.Mock;
+    mockReadFile.mockResolvedValue('<div class="bg-red-500">');
 
-  //   // Mock isFileModified to return true for one file and false for the other
-  //   tailwindKiller['isFileModified'] = jest.fn()
-  //     .mockReturnValueOnce(true)   // First file is modified
-  //     .mockReturnValueOnce(false); // Second file is not modified
+    // Mock isFileModified to return true for one file and false for the other
+    tailwindKiller['isFileModified'] = jest.fn()
+      .mockReturnValueOnce(true)   // First file is modified
+      .mockReturnValueOnce(false); // Second file is not modified
 
-  //   // Mock replaceTailwind to return modified content
-  //   tailwindKiller['replaceTailwind'] = jest.fn().mockReturnValue('<div class="tw-red-background">');
+    // Mock replaceTailwind to return modified content
+    tailwindKiller['replaceTailwind'] = jest.fn().mockReturnValue('<div class="tw-red-background">');
 
-  //   // Mock getCSSCode to return some CSS
-  //   tailwindKiller['getCSSCode'] = jest.fn().mockResolvedValue('.tw-red-background { background-color: red; }');
+    // Mock getCSSCode to return some CSS
+    tailwindKiller['getCSSCode'] = jest.fn().mockResolvedValue('.tw-red-background { background-color: red; }');
     
-  //   // Mock tailwindKiller.saveLockfile to observe if it's called
-  //   const saveLockfileSpy = jest.spyOn(tailwindKiller, 'saveLockfile');
+    // Mock tailwindKiller.saveLockfile to observe if it's called
+    const saveLockfileSpy = jest.spyOn(tailwindKiller, 'saveLockfile');
 
-  //   // Spy on addToWrite method
-  //   const addToWriteSpy = jest.spyOn(tailwindKiller, 'addToWrite');
+    // Spy on addToWrite method
+    const addToWriteSpy = jest.spyOn(tailwindKiller, 'addToWrite');
 
-  //   await tailwindKiller.run('src', 'tailwind-killer.lock');
+    await tailwindKiller.run('src', 'tailwind-killer.lock');
 
-  //   // Check if addToWrite was called for the modified file
-  //   expect(addToWriteSpy).toHaveBeenCalledTimes(1);
-  //   expect(addToWriteSpy).toHaveBeenCalledWith(
-  //     expect.stringContaining('file1.astro'),
-  //     expect.any(String)
-  //   );
+    // Check if addToWrite was called for the modified file
+    expect(addToWriteSpy).toHaveBeenCalledTimes(1);
+    expect(addToWriteSpy).toHaveBeenCalledWith(
+      expect.stringContaining('file1.astro'),
+      expect.any(String)
+    );
 
-  //   // Check if saveLockfile was called
-  //   expect(saveLockfileSpy).toHaveBeenCalledTimes(1);
+    // Check if saveLockfile was called
+    expect(saveLockfileSpy).toHaveBeenCalledTimes(1);
 
-  //   // Restore the original method
-  //   addToWriteSpy.mockRestore();
-  // });
+    // Restore the original method
+    addToWriteSpy.mockRestore();
+  });
 
   // Add this new test to check if files are skipped when not modified
   test('run skips unmodified files', async () => {

@@ -26,7 +26,7 @@ npm i -g tailwind-killer
 To use Tailwind Killer, run the following command in your project directory:
 
 ```bash
-tailwind-killer killtw [options]
+tailwind-killer [options]
 ```
 
 ## How It Works

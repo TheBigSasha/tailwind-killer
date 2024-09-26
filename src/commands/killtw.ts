@@ -3,7 +3,7 @@ import { consola } from 'consola';
 import { TailwindKiller, TailwindKillerConfig } from '../killtailwind';
 
 const killtwCommand: CommandModule = {
-  command: 'killtw',
+  command: '$0',
   describe: 'Convert Tailwind CSS classes to regular CSS',
   builder: (yargs) => {
     return yargs
